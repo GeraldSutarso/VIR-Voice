@@ -1,6 +1,15 @@
 streamlit
-openai-whisper
 torch
 torchaudio
+openai-whisper
 speechrecognition
-pydub
+pyaudio
+langid
+unidecode
+transformers
+sentencepiece
+sounddevice
+soundfile
+numpy
+matplotlib
+streamlit-autorefresh
