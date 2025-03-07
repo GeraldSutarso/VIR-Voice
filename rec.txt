@@ -1,0 +1,15 @@
+streamlit
+torch
+torchaudio
+openai-whisper
+speechrecognition
+pyaudio
+langid
+unidecode
+transformers
+sentencepiece
+sounddevice
+soundfile
+numpy
+matplotlib
+streamlit-autorefresh
