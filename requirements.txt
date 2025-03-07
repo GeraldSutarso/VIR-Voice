@@ -13,3 +13,4 @@ soundfile
 numpy
 matplotlib
 streamlit-autorefresh
+sacremoses
