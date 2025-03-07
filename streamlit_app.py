@@ -44,7 +44,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 @st.cache_resource
 def load_whisper_model():
     # Use a smaller model if needed; using "large" is heavy
-    return whisper.load_model("large", device=device)
+    return whisper.load_model("medium", device=device)
 
 model = load_whisper_model()
 
