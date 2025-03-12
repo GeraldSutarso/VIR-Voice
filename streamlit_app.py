@@ -4,10 +4,23 @@ import librosa
 import tensorflow as tf
 from tempfile import NamedTemporaryFile
 
-# Load pre-trained model
+# Custom InputLayer to handle batch_shape -> batch_input_shape mapping
+from tensorflow.keras.layers import InputLayer as BaseInputLayer
+
+class CustomInputLayer(BaseInputLayer):
+    def __init__(self, *args, **kwargs):
+        # Rename 'batch_shape' to 'batch_input_shape' if present
+        if 'batch_shape' in kwargs:
+            kwargs['batch_input_shape'] = kwargs.pop('batch_shape')
+        super().__init__(*args, **kwargs)
+
+# Load pre-trained model using the custom InputLayer
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model('emotion_recognition_lstm.h5')
+    return tf.keras.models.load_model(
+        'emotion_recognition_lstm.h5', 
+        custom_objects={'InputLayer': CustomInputLayer}
+    )
 
 model = load_model()
 
@@ -22,7 +35,7 @@ def extract_features(audio_path, max_pad_len=100):
     audio, sr = librosa.load(audio_path, sr=16000)
     mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
     
-    # Pad/truncate to fixed length
+    # Pad/truncate to a fixed length
     if mfcc.shape[1] < max_pad_len:
         mfcc = np.pad(mfcc, ((0, 0), (0, max_pad_len - mfcc.shape[1])), mode='constant')
     else:
@@ -30,7 +43,7 @@ def extract_features(audio_path, max_pad_len=100):
     
     return mfcc.T
 
-# Streamlit app
+# Streamlit app UI
 st.title("🎤 Voice Emotion Recognition")
 st.write("Upload a WAV file to analyze emotional state")
 
@@ -71,7 +84,7 @@ if uploaded_file is not None:
         col1, col2 = st.columns(2)
         with col1:
             st.metric("Predicted Emotion", 
-                     f"{emotion_labels[predicted_class]} {emoji_dict[emotion_labels[predicted_class]]}")
+                      f"{emotion_labels[predicted_class]} {emoji_dict[emotion_labels[predicted_class]]}")
         with col2:
             st.metric("Confidence", f"{confidence:.2%}")
             
