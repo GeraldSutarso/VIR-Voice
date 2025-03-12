@@ -4,3 +4,4 @@ librosa
 numpy
 soundfile
 pydub
+imageio-ffmpeg>=0.4.3
