@@ -3,16 +3,6 @@ import numpy as np
 import librosa
 import tensorflow as tf
 from tempfile import NamedTemporaryFile
-from pydub import AudioSegment
-import io
-import imageio_ffmpeg as ffmpeg
-from pydub import AudioSegment
-
-# Set the path for both the converter and ffprobe
-AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
-# If needed, you can use the same binary or check the package docs for ffprobe:
-AudioSegment.ffprobe = ffmpeg.get_ffmpeg_exe()
-
 
 # Custom InputLayer to handle batch_shape -> batch_input_shape mapping
 from tensorflow.keras.layers import InputLayer as BaseInputLayer
@@ -42,10 +32,11 @@ emotion_labels = [
 
 # Feature extraction function
 def extract_features(audio_path, max_pad_len=100):
+    # Librosa will handle loading the audio (MP3 or WAV)
     audio, sr = librosa.load(audio_path, sr=16000)
     mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
     
-    # Pad/truncate to fixed length
+    # Pad or truncate to a fixed length
     if mfcc.shape[1] < max_pad_len:
         mfcc = np.pad(mfcc, ((0, 0), (0, max_pad_len - mfcc.shape[1])), mode='constant')
     else:
@@ -63,29 +54,16 @@ uploaded_file = st.file_uploader("Choose audio file", type=["wav", "mp3"])
 if uploaded_file is not None:
     file_extension = uploaded_file.name.split('.')[-1].lower()
     
-    # Convert MP3 to WAV if needed
-    if file_extension == 'mp3':
-        # Load the MP3 file with pydub
-        audio = AudioSegment.from_file(uploaded_file, format="mp3")
-        wav_io = io.BytesIO()
-        audio.export(wav_io, format="wav")
-        wav_io.seek(0)
-        audio_data = wav_io.read()
-        
-        with NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-            tmp_file.write(audio_data)
-            tmp_path = tmp_file.name
-    else:
-        # For WAV, save directly
-        with NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            tmp_path = tmp_file.name
-    
+    # Save the uploaded file to a temporary file without any conversion
+    with NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as tmp_file:
+        tmp_file.write(uploaded_file.getvalue())
+        tmp_path = tmp_file.name
+
     # Display audio player
     st.audio(uploaded_file, format=f'audio/{file_extension}')
     
-    # Process audio
     try:
+        # Process the audio file
         features = extract_features(tmp_path)
         input_data = np.expand_dims(features, axis=0)  # Add batch dimension
         
