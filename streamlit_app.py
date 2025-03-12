@@ -3,6 +3,8 @@ import numpy as np
 import librosa
 import tensorflow as tf
 from tempfile import NamedTemporaryFile
+from pydub import AudioSegment
+import io
 
 # Custom InputLayer to handle batch_shape -> batch_input_shape mapping
 from tensorflow.keras.layers import InputLayer as BaseInputLayer
@@ -35,7 +37,7 @@ def extract_features(audio_path, max_pad_len=100):
     audio, sr = librosa.load(audio_path, sr=16000)
     mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
     
-    # Pad/truncate to a fixed length
+    # Pad/truncate to fixed length
     if mfcc.shape[1] < max_pad_len:
         mfcc = np.pad(mfcc, ((0, 0), (0, max_pad_len - mfcc.shape[1])), mode='constant')
     else:
@@ -45,18 +47,34 @@ def extract_features(audio_path, max_pad_len=100):
 
 # Streamlit app UI
 st.title("🎤 Voice Emotion Recognition")
-st.write("Upload a WAV file to analyze emotional state")
+st.write("Upload a WAV or MP3 file to analyze the emotional state")
 
-uploaded_file = st.file_uploader("Choose audio file", type=["wav"])
+# Allow both wav and mp3 file types
+uploaded_file = st.file_uploader("Choose audio file", type=["wav", "mp3"])
 
 if uploaded_file is not None:
-    # Save uploaded file temporarily
-    with NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-        tmp_file.write(uploaded_file.getvalue())
-        tmp_path = tmp_file.name
+    file_extension = uploaded_file.name.split('.')[-1].lower()
+    
+    # Convert MP3 to WAV if needed
+    if file_extension == 'mp3':
+        # Load the MP3 file with pydub
+        audio = AudioSegment.from_file(uploaded_file, format="mp3")
+        wav_io = io.BytesIO()
+        audio.export(wav_io, format="wav")
+        wav_io.seek(0)
+        audio_data = wav_io.read()
+        
+        with NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            tmp_file.write(audio_data)
+            tmp_path = tmp_file.name
+    else:
+        # For WAV, save directly
+        with NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            tmp_path = tmp_file.name
     
     # Display audio player
-    st.audio(uploaded_file, format='audio/wav')
+    st.audio(uploaded_file, format=f'audio/{file_extension}')
     
     # Process audio
     try:
