@@ -5,6 +5,14 @@ import tensorflow as tf
 from tempfile import NamedTemporaryFile
 from pydub import AudioSegment
 import io
+import imageio_ffmpeg as ffmpeg
+from pydub import AudioSegment
+
+# Set the path for both the converter and ffprobe
+AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
+# If needed, you can use the same binary or check the package docs for ffprobe:
+AudioSegment.ffprobe = ffmpeg.get_ffmpeg_exe()
+
 
 # Custom InputLayer to handle batch_shape -> batch_input_shape mapping
 from tensorflow.keras.layers import InputLayer as BaseInputLayer
