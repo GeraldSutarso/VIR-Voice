@@ -1,7 +1,7 @@
-streamlit
-tensorflow
 librosa
 numpy
-soundfile
-pydub
-imageio-ffmpeg>=0.4.3
+scikit-learn
+tensorflow
+matplotlib
+streamlit
+keras-tuner
