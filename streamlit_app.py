@@ -304,16 +304,8 @@ def main():
             if uploaded_file is not None:
                 os.unlink(audio_path)
 
-    # Add implementation note
     st.markdown("---")
-    st.markdown("""
-    **Implementation Note:** 
-    This app requires the trained model files to be in the same directory. The app tries to load either:
-    1. The pickled ensemble model (`emotion_ensemble_model.pkl`) and label encoder (`label_encoder.pkl`), or
-    2. The individual model files (`emotion_recognition_lstm.h5`, `emotion_model_2.h5`, and `emotion_model_3.h5`)
-    
-    Make sure these files are available before running the app.
-    """)
+
     
 if __name__ == "__main__":
     main()
