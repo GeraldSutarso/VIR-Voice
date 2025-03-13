@@ -148,8 +148,7 @@ def load_model():
 
 # Main app logic
 def main():
-    # Sidebar
-    st.sidebar.image("https://i.imgur.com/XZ57Yec.png", width=100)  # Placeholder logo
+
     st.sidebar.title("About")
     st.sidebar.info(
         "This app uses a deep learning ensemble model to recognize emotions in speech. "
