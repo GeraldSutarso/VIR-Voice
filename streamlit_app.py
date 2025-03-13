@@ -10,6 +10,8 @@ import time
 from scipy.io import wavfile
 import plotly.express as px
 import plotly.graph_objects as go
+import tensorflow as tf
+from tensorflow.keras.models import load_model
 
 # Set page config
 st.set_page_config(
@@ -41,10 +43,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.markdown("<h1 class='main-header'>Speech Emotion Recognition</h1>", unsafe_allow_html=True)
-st.markdown("### Analyze emotions in speech using deep learning")
-
 # Function to extract features (same as in original code)
 @st.cache_data
 def extract_features(file_path, max_pad_len=100):
@@ -58,6 +56,30 @@ def extract_features(file_path, max_pad_len=100):
         mfcc = mfcc[:, :max_pad_len]
 
     return mfcc.T
+
+# Important: Re-define the EmotionEnsembleModel class here so it's available during unpickling
+class EmotionEnsembleModel:
+    def __init__(self, models, label_encoder):
+        self.models = models
+        self.label_encoder = label_encoder
+        
+    def predict(self, audio_file, max_pad_len=100):
+        # Extract features using the same function as in training
+        features = extract_features(audio_file, max_pad_len)
+        features = np.expand_dims(features, axis=0)
+        
+        # Get predictions from all models
+        predictions = [model.predict(features) for model in self.models]
+        
+        # Average predictions
+        ensemble_pred = np.mean(predictions, axis=0)
+        predicted_class = np.argmax(ensemble_pred, axis=1)[0]
+        
+        # Map back to emotion label
+        emotion = self.label_encoder.inverse_transform([predicted_class])[0]
+        confidence = ensemble_pred[0][predicted_class]
+        
+        return emotion, confidence, {self.label_encoder.inverse_transform([i])[0]: ensemble_pred[0][i] for i in range(len(ensemble_pred[0]))}
 
 # Function to visualize the audio waveform
 def plot_waveform(audio_file):
@@ -88,16 +110,41 @@ def plot_emotion_predictions(predictions):
     fig.update_layout(height=400)
     return fig
 
+# Alternative model loading approach
+def load_model_manually():
+    try:
+        # Load label encoder
+        with open('label_encoder.pkl', 'rb') as f:
+            label_encoder = pickle.load(f)
+        
+        # Load individual models
+        model1 = load_model("emotion_recognition_lstm.h5")
+        model2 = load_model("emotion_model_2.h5")
+        model3 = load_model("emotion_model_3.h5")
+        
+        # Create ensemble model instance
+        ensemble_model = EmotionEnsembleModel(
+            models=[model1, model2, model3],
+            label_encoder=label_encoder
+        )
+        
+        return ensemble_model
+    except FileNotFoundError as e:
+        st.error(f"Model file not found: {e}. Please ensure all model files are in the same directory as this app.")
+        return None
+
 # Load the ensemble model
 @st.cache_resource
 def load_model():
     try:
+        # First try loading the pickled ensemble model
         with open('emotion_ensemble_model.pkl', 'rb') as f:
             ensemble_model = pickle.load(f)
         return ensemble_model
-    except FileNotFoundError:
-        st.error("Model file not found. Please ensure 'emotion_ensemble_model.pkl' is in the same directory as this app.")
-        return None
+    except (FileNotFoundError, AttributeError):
+        st.warning("Could not load the ensemble model directly. Trying to load individual models...")
+        # Fall back to loading models manually
+        return load_model_manually()
 
 # Main app logic
 def main():
@@ -129,6 +176,7 @@ def main():
     model = load_model()
     
     if model is None:
+        st.error("Could not load the required model files. Please check the setup instructions.")
         return
     
     # File uploader
@@ -194,59 +242,63 @@ def main():
                 progress_bar.progress(25)
                 time.sleep(0.5)  # Feature extraction
                 
-                # Predict emotion
-                emotion, confidence, all_emotions = model.predict(audio_path)
-                
-                progress_bar.progress(50)
-                time.sleep(0.5)  # Processing
-                
-                progress_bar.progress(75)
-                time.sleep(0.5)  # Finalizing
-                
-                progress_bar.progress(100)
-                
-                with col2:
-                    st.markdown("<h2 class='sub-header'>Analysis Results</h2>", unsafe_allow_html=True)
+                try:
+                    # Predict emotion
+                    emotion, confidence, all_emotions = model.predict(audio_path)
                     
-                    # Display the primary emotion with a nice colored box
-                    emotion_colors = {
-                        "Neutral": "#9E9E9E",
-                        "Calm": "#64B5F6",
-                        "Happy": "#FFD54F",
-                        "Sad": "#90CAF9",
-                        "Angry": "#EF5350",
-                        "Fearful": "#CE93D8",
-                        "Disgust": "#81C784",
-                        "Surprised": "#FFB74D"
-                    }
+                    progress_bar.progress(50)
+                    time.sleep(0.5)  # Processing
                     
-                    emotion_color = emotion_colors.get(emotion, "#9E9E9E")
+                    progress_bar.progress(75)
+                    time.sleep(0.5)  # Finalizing
                     
-                    st.markdown(
-                        f"""
-                        <div style="background-color: {emotion_color}; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                            <h3 style="color: white; margin: 0;">Detected Emotion: 
-                                <span class="result-text">{emotion}</span>
-                            </h3>
-                            <p style="color: white; margin: 0;">Confidence: {confidence:.2f}</p>
-                        </div>
-                        """, 
-                        unsafe_allow_html=True
-                    )
+                    progress_bar.progress(100)
                     
-                    # Display all emotion probabilities
-                    st.markdown("#### Emotion Confidence Scores")
-                    
-                    # Create and display the emotions plot
-                    emotions_fig = plot_emotion_predictions(all_emotions)
-                    st.plotly_chart(emotions_fig, use_container_width=True)
-                    
-                    # Add explanation
-                    st.markdown("""
-                    **Understanding the results:**
-                    
-                    The model predicts the likelihood of each emotion in the audio. The emotion with the highest score is considered the primary detected emotion. Higher confidence scores indicate stronger emotional signals in the speech.
-                    """)
+                    with col2:
+                        st.markdown("<h2 class='sub-header'>Analysis Results</h2>", unsafe_allow_html=True)
+                        
+                        # Display the primary emotion with a nice colored box
+                        emotion_colors = {
+                            "Neutral": "#9E9E9E",
+                            "Calm": "#64B5F6",
+                            "Happy": "#FFD54F",
+                            "Sad": "#90CAF9",
+                            "Angry": "#EF5350",
+                            "Fearful": "#CE93D8",
+                            "Disgust": "#81C784",
+                            "Surprised": "#FFB74D"
+                        }
+                        
+                        emotion_color = emotion_colors.get(emotion, "#9E9E9E")
+                        
+                        st.markdown(
+                            f"""
+                            <div style="background-color: {emotion_color}; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                                <h3 style="color: white; margin: 0;">Detected Emotion: 
+                                    <span class="result-text">{emotion}</span>
+                                </h3>
+                                <p style="color: white; margin: 0;">Confidence: {confidence:.2f}</p>
+                            </div>
+                            """, 
+                            unsafe_allow_html=True
+                        )
+                        
+                        # Display all emotion probabilities
+                        st.markdown("#### Emotion Confidence Scores")
+                        
+                        # Create and display the emotions plot
+                        emotions_fig = plot_emotion_predictions(all_emotions)
+                        st.plotly_chart(emotions_fig, use_container_width=True)
+                        
+                        # Add explanation
+                        st.markdown("""
+                        **Understanding the results:**
+                        
+                        The model predicts the likelihood of each emotion in the audio. The emotion with the highest score is considered the primary detected emotion. Higher confidence scores indicate stronger emotional signals in the speech.
+                        """)
+                except Exception as e:
+                    st.error(f"Error during analysis: {str(e)}")
+                    st.info("Check that the audio file is in the correct format (WAV) and contains clear speech.")
             
             # Clean up temp file
             if uploaded_file is not None:
@@ -256,7 +308,10 @@ def main():
     st.markdown("---")
     st.markdown("""
     **Implementation Note:** 
-    This app requires the trained ensemble model files (`emotion_ensemble_model.pkl` and `label_encoder.pkl`) to be in the same directory. 
+    This app requires the trained model files to be in the same directory. The app tries to load either:
+    1. The pickled ensemble model (`emotion_ensemble_model.pkl`) and label encoder (`label_encoder.pkl`), or
+    2. The individual model files (`emotion_recognition_lstm.h5`, `emotion_model_2.h5`, and `emotion_model_3.h5`)
+    
     Make sure these files are available before running the app.
     """)
     
