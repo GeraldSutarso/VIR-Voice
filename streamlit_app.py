@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Load the trained model
-MODEL_PATH = "emotion_recognition_lstm.h5"
+MODEL_PATH = "emotion_recognition_finetuned.h5"
 model = tf.keras.models.load_model(MODEL_PATH)
 
 # Define emotion labels
