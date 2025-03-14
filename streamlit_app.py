@@ -111,39 +111,55 @@ def plot_emotion_predictions(predictions):
     return fig
 
 # Alternative model loading approach
+# def load_model_manually():
+#     try:
+#         # Load label encoder
+#         with open('label_encoder.pkl', 'rb') as f:
+#             label_encoder = pickle.load(f)
+        
+#         # Load individual models
+#         model1 = load_model("emotion_recognition_lstm.h5")
+#         model2 = load_model("emotion_model_2.h5")
+#         model3 = load_model("emotion_model_3.h5")
+        
+#         # Create ensemble model instance
+#         ensemble_model = EmotionEnsembleModel(
+#             models=[model1, model2, model3],
+#             label_encoder=label_encoder
+#         )
+        
+#         return ensemble_model
+#     except FileNotFoundError as e:
+#         st.error(f"Model file not found: {e}. Please ensure all model files are in the same directory as this app.")
+#         return None
+
+# Alternative model loading approach
 def load_model_manually():
     try:
         # Load label encoder
         with open('label_encoder.pkl', 'rb') as f:
             label_encoder = pickle.load(f)
         
-        # Load individual models
-        model1 = load_model("emotion_recognition_lstm.h5")
-        model2 = load_model("emotion_model_2.h5")
-        model3 = load_model("emotion_model_3.h5")
+        # Load the new model
+        model = load_model("emotion_recognition_lstm_no_overfit.h5")
         
-        # Create ensemble model instance
-        ensemble_model = EmotionEnsembleModel(
-            models=[model1, model2, model3],
-            label_encoder=label_encoder
-        )
-        
-        return ensemble_model
+        return model, label_encoder
     except FileNotFoundError as e:
-        st.error(f"Model file not found: {e}. Please ensure all model files are in the same directory as this app.")
-        return None
+        st.error(f"Model file not found: {e}. Please ensure the model file is in the same directory as this app.")
+        return None, None
+
 
 # Load the ensemble model
 @st.cache_resource
 def load_model():
-    try:
-        # First try loading the pickled ensemble model
-        with open('emotion_ensemble_model.pkl', 'rb') as f:
-            ensemble_model = pickle.load(f)
-        return ensemble_model
-    except (FileNotFoundError, AttributeError):
-        st.warning("Could not load the ensemble model directly. Trying to load individual models...")
-        # Fall back to loading models manually
+    # try:
+    #     # First try loading the pickled ensemble model
+    #     with open('emotion_ensemble_model.pkl', 'rb') as f:
+    #         ensemble_model = pickle.load(f)
+    #     return ensemble_model
+    # except (FileNotFoundError, AttributeError):
+    #     st.warning("Could not load the ensemble model directly. Trying to load individual models...")
+    #     # Fall back to loading models manually
         return load_model_manually()
 
 # Main app logic
@@ -243,7 +259,23 @@ def main():
                 
                 try:
                     # Predict emotion
-                    emotion, confidence, all_emotions = model.predict(audio_path)
+                    # emotion, confidence, all_emotions = model.predict(audio_path)
+
+                    # Load extracted features
+                    features = extract_features(audio_path)
+                    features = np.expand_dims(features, axis=0)
+
+                    # Get predictions
+                    predictions = model.predict(features)
+                    predicted_class = np.argmax(predictions, axis=1)[0]
+
+                    # Map back to emotion label
+                    emotion = label_encoder.inverse_transform([predicted_class])[0]
+                    confidence = predictions[0][predicted_class]
+
+                    # Store all emotion confidence scores
+                    all_emotions = {label_encoder.inverse_transform([i])[0]: predictions[0][i] for i in range(len(predictions[0]))}
+
                     
                     progress_bar.progress(50)
                     time.sleep(0.5)  # Processing
