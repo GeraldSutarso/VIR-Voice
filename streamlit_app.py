@@ -31,7 +31,7 @@ EMOTION_LABELS = ["Neutral", "Calm", "Happy", "Sad", "Angry", "Fearful", "Disgus
 @st.cache_resource
 def load_emotion_model():
     try:
-        model = load_model("emotion_recognition_lstm(1).h5")
+        model = load_model("emotion_recognition_lstm (1).h5")
         return model
     except Exception as e:
         st.error(f"Failed to load model: {e}")
