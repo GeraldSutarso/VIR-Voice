@@ -160,7 +160,7 @@ def load_model():
     # except (FileNotFoundError, AttributeError):
     #     st.warning("Could not load the ensemble model directly. Trying to load individual models...")
     #     # Fall back to loading models manually
-        return load_model_manually()
+    return load_model_manually()
 
 # Main app logic
 def main():
